@@ -39,6 +39,14 @@
 #endif
 #endif
 
+#ifndef memcpy
+#define memcpy(dest, src, n)   __builtin_memcpy((dest), (src), (n))
+#endif
+
+#ifndef memset
+#define memset(dest, src, n)   __builtin_memset((dest), (src), (n))
+#endif
+
 #define TARGETPORT 27015
 
 struct stats
