@@ -14,6 +14,8 @@ There are two command line options for this program which may be found below.
 * `-x --afxdp` => Calculate inside of an AF_XDP program (only supported for `XDP_DROP` at the moment).
 * `-r --xdptx` => Instead of `XDP_DROP`, use `XDP_TX` (in two modes which are listed below).
 * `-c --cores` => If AF_XDP is specified, use this flag to override how many threads/AF_XDP sockets are spun up (keep in mind this should be the amount of RX queue you have since these bind to an individual RX queue).
+* `-s --skb` => Force SKB mode.
+* `-o --offload` => Try loading the XDP program in offload mode.
 
 ## XDP_TX Modes
 There are two modes and they must be adjusted inside of the source file. By default, an FIB lookup is performed inside of the XDP program and if a match is found, it will TX the packet + update the stats. Otherwise, the packet is dropped.

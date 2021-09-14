@@ -9,6 +9,9 @@ struct cmdline
     unsigned int afxdp : 1;
     unsigned int rawxdptx : 1;
     __u32 cores;
+
+    unsigned int skb : 1;
+    unsigned int offload : 1;
 };
 
 struct stats

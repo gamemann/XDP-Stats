@@ -23,6 +23,8 @@ const struct option longopts[] =
     {"afxdp", no_argument, NULL, 'x'},
     {"xdptx", no_argument, NULL, 'r'},
     {"cores", required_argument, NULL, 'c'},
+    {"skb", no_argument, NULL, 's'},
+    {"offload", no_argument, NULL, 'o'},
     {NULL, 0, NULL, 0}
 };
 
@@ -39,7 +41,7 @@ void parsecmdline(int argc, char *argv[], struct cmdline *cmd)
 {
     int c = -1;
 
-    while ((c = getopt_long(argc, argv, "i:t:xrc:", longopts, NULL)) != -1)
+    while ((c = getopt_long(argc, argv, "i:t:xrc:so", longopts, NULL)) != -1)
     {
         switch (c)
         {
@@ -68,12 +70,117 @@ void parsecmdline(int argc, char *argv[], struct cmdline *cmd)
 
                 break;
 
+            case 's':
+                cmd->skb = 1;
+
+                break;
+
+            case 'o':
+                cmd->offload = 1;
+
+                break;
+
             case '?':
                 fprintf(stderr, "Missing argument value.\n");
 
                 break;
         }
     }
+}
+
+/**
+ * Attempts to attach or detach (progfd = -1) a BPF/XDP program to an interface.
+ * 
+ * @param ifidx The index to the interface to attach to.
+ * @param progfd A file description (FD) to the BPF/XDP program.
+ * @param cmd A pointer to a cmdline struct that includes command line arguments (mostly checking for offload/HW mode set).
+ * 
+ * @return Returns the flag (int) it successfully attached the BPF/XDP program with or a negative value for error.
+ */
+int attachxdp(int ifidx, int progfd, struct cmdline *cmd)
+{
+    int err;
+
+    char *smode;
+
+    uint32_t flags = XDP_FLAGS_UPDATE_IF_NOEXIST;
+    uint32_t mode = XDP_FLAGS_DRV_MODE;
+
+    smode = "DRV/native";
+
+    if (cmd->offload)
+    {
+        smode = "HW/offload";
+
+        mode = XDP_FLAGS_HW_MODE;
+    }
+    else if (cmd->skb)
+    {
+        smode = "SKB/generic";
+        mode = XDP_FLAGS_SKB_MODE;
+    }
+
+    flags |= mode;
+
+    int exit = 0;
+
+    while (!exit)
+    {
+        // Try loading program with current mode.
+        int err;
+
+        err = bpf_set_link_xdp_fd(ifidx, progfd, flags);
+
+        if (err || progfd == -1)
+        {
+            const char *errmode;
+
+            // Decrease mode.
+            switch (mode)
+            {
+                case XDP_FLAGS_HW_MODE:
+                    mode = XDP_FLAGS_DRV_MODE;
+                    flags &= ~XDP_FLAGS_HW_MODE;
+                    errmode = "HW/offload";
+
+                    break;
+
+                case XDP_FLAGS_DRV_MODE:
+                    mode = XDP_FLAGS_SKB_MODE;
+                    flags &= ~XDP_FLAGS_DRV_MODE;
+                    errmode = "DRV/native";
+
+                    break;
+
+                case XDP_FLAGS_SKB_MODE:
+                    // Exit program and set mode to -1 indicating error.
+                    exit = 1;
+                    mode = -err;
+                    errmode = "SKB/generic";
+
+                    break;
+            }
+
+            if (progfd != -1)
+            {
+                fprintf(stderr, "Could not attach with %s mode (%s)(%d).\n", errmode, strerror(-err), err);
+            }
+            
+            if (mode != -err)
+            {
+                smode = (mode == XDP_FLAGS_HW_MODE) ? "HW/offload" : (mode == XDP_FLAGS_DRV_MODE) ? "DRV/native" : (mode == XDP_FLAGS_SKB_MODE) ? "SKB/generic" : "N/A";
+                flags |= mode;
+            }
+        }
+        else
+        {
+            fprintf(stdout, "Loaded XDP program in %s mode.\n", smode);
+
+            break;
+        }
+    }
+
+    return mode;
 }
 
 int main(int argc, char *argv[])
@@ -121,14 +228,12 @@ int main(int argc, char *argv[])
         return EXIT_FAILURE;
     }
 
-    __u32 flags = XDP_FLAGS_UPDATE_IF_NOEXIST | XDP_FLAGS_DRV_MODE;
+    // Attach XDP program with DRV mode.
+    int flags = attachxdp(ifidx, bpffd, &cmd);
 
-
-    int err = bpf_set_link_xdp_fd(ifidx, bpffd, flags);
-
-    if (err)
+    if (flags != XDP_FLAGS_HW_MODE && flags != XDP_FLAGS_DRV_MODE && flags != XDP_FLAGS_SKB_MODE)
     {
-        fprintf(stderr, "Error attaching XDP program :: %s (%d).\n", strerror(-err), -err);
+        fprintf(stderr, "Error attaching XDP program :: %s (%d)\n", strerror(flags), flags);
 
         return EXIT_FAILURE;
     }
@@ -148,7 +253,7 @@ int main(int argc, char *argv[])
     {
         int xsksmap = bpf_object__find_map_fd_by_name(obj, "xsks_map");
 
-        setupxsk(cmd.interface, ifidx, pcktmap, xsksmap, flags, cmd.cores);
+        setupxsk(cmd.interface, ifidx, pcktmap, xsksmap, (__u32)flags, cmd.cores);
     }
 
     signal(SIGINT, sighndl);
@@ -189,6 +294,7 @@ int main(int argc, char *argv[])
             if (bpf_map_lookup_elem(pcktmap, &key, cnt) != 0)
             {
                 fprintf(stderr, "Failed lookup. Pckt map => %d.\n", pcktmap);
+
                 continue;
             }
 
@@ -249,7 +355,7 @@ int main(int argc, char *argv[])
 
     fprintf(stdout, "Packets Total => %llu. Avg PPS => %llu.\n Bytes Total => %llu. Avg BPS => %llu.\n Seconds => %u. AF_XDP => %s.\n", totpckts, avgpps, totbytes, avgbps, timelap, (cmd.afxdp) ? "Yes" : "No");
 
-    bpf_set_link_xdp_fd(ifidx, -1, flags);
+    attachxdp(ifidx, -1, &cmd);
 
     if (cmd.afxdp)
     {
