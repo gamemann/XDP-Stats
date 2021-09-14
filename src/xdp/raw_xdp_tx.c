@@ -32,6 +32,7 @@ struct bpf_map_def SEC("maps") packets_map =
     .max_entries = 1
 };
 
+#ifndef FIBLOOKUP
 static __always_inline void swapeth(struct ethhdr *eth)
 {
     __u8 tmp[ETH_ALEN];
@@ -40,6 +41,7 @@ static __always_inline void swapeth(struct ethhdr *eth)
     memcpy(&eth->h_source, &eth->h_dest, ETH_ALEN);
     memcpy(&eth->h_dest, &tmp, ETH_ALEN);
 }
+#endif
 
 static __always_inline int ip_decrease_ttl(struct iphdr *iph)
 {
