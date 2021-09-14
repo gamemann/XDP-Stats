@@ -98,15 +98,15 @@ int main(int argc, char *argv[])
         return EXIT_FAILURE;
     }
 
-    char *objfile = "/etc/pen-test/raw_xdp.o";
+    char *objfile = "/etc/xdpstats/raw_xdp.o";
 
     if (cmd.afxdp)
     {
-        objfile = "/etc/pen-test/afxdp_raw.o";
+        objfile = "/etc/xdpstats/afxdp_raw.o";
     }
     else if (cmd.rawxdptx)
     {
-        objfile = "/etc/pen-test/raw_xdp_tx.o";
+        objfile = "/etc/xdpstats/raw_xdp_tx.o";
     }
 
     struct bpf_object *obj = NULL;
@@ -247,7 +247,7 @@ int main(int argc, char *argv[])
         avgbps = totbytes / timelap;
     }
 
-    fprintf(stdout, "Packets Tot => %llu. Avg PPS => %llu.\n Bytes Tot => %llu. Avg BPS => %llu.\n Seconds => %u. AF_XDP => %s.\n", totpckts, avgpps, totbytes, avgbps, timelap, (cmd.afxdp) ? "Yes" : "No");
+    fprintf(stdout, "Packets Total => %llu. Avg PPS => %llu.\n Bytes Total => %llu. Avg BPS => %llu.\n Seconds => %u. AF_XDP => %s.\n", totpckts, avgpps, totbytes, avgbps, timelap, (cmd.afxdp) ? "Yes" : "No");
 
     bpf_set_link_xdp_fd(ifidx, -1, flags);
 
