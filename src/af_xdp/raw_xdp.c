@@ -74,10 +74,12 @@ int prog(struct xdp_md *ctx)
         return XDP_DROP;
     }
 
+    #ifdef TARGETPORT
     if (udph->dest != htons(TARGETPORT))
     {
         return XDP_PASS;
     }
+    #endif
 
     #ifdef DEBUG
         bpf_printk("Redirecting packet to RX queue %d.\n", ctx->rx_queue_index);

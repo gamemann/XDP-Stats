@@ -111,10 +111,12 @@ int prog(struct xdp_md *ctx)
         return XDP_DROP;
     }
 
+    #ifdef TARGETPORT
     if (udph->dest != htons(TARGETPORT))
     {
         return XDP_PASS;
     }
+    #endif
 
     if (iph->ttl <= 1)
     {

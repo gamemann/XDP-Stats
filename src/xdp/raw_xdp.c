@@ -66,10 +66,12 @@ int prog(struct xdp_md *ctx)
         return XDP_DROP;
     }
 
+    #ifdef TARGETPORT
     if (udph->dest != htons(TARGETPORT))
     {
         return XDP_PASS;
     }
+    #endif
 
     // Update map.
     __u32 key = 0;
