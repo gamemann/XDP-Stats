@@ -75,7 +75,7 @@ int prog(struct xdp_md *ctx)
     __u32 key = 0;
     struct stats *cnt = bpf_map_lookup_elem(&packets_map, &key);
 
-    __u16 len = (long)ctx->data_end - (long)ctx->data;
+    __u16 len = (__u32)data_end - (__u32)data;
 
     if (cnt)
     {
