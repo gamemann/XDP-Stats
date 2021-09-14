@@ -37,7 +37,7 @@ struct bpf_map_def SEC("maps") packets_map =
     .max_entries = 1
 };
 
-SEC("pentest")
+SEC("xdpstats")
 int prog(struct xdp_md *ctx)
 {
     void *data = (void *)(long)ctx->data;

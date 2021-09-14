@@ -74,7 +74,7 @@ static __always_inline void updatestats(__u16 len)
     } 
 }
 
-SEC("pentest")
+SEC("xdpstats")
 int prog(struct xdp_md *ctx)
 {
     void *data = (void *)(long)ctx->data;
