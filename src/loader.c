@@ -62,7 +62,7 @@ void parsecmdline(int argc, char *argv[], struct cmdline *cmd)
                 break;
 
             case 'r':
-                cmd->rawxdptx = 1;
+                cmd->tx = 1;
 
                 break;
 
@@ -237,9 +237,16 @@ int main(int argc, char *argv[])
     {
         objfile = "/etc/xdpstats/afxdp_raw.o";
     }
-    else if (cmd.rawxdptx)
+    else if (cmd.tx)
     {
-        objfile = "/etc/xdpstats/raw_xdp_tx.o";
+        if (cmd.afxdp)
+        {
+            objfile = "/etc/xdpstats/afxdp_raw_xdp_tx.o";
+        }
+        else
+        {
+            objfile = "/etc/xdpstats/raw_xdp_tx.o";
+        }
     }
 
     struct bpf_object *obj = NULL;
@@ -361,7 +368,7 @@ int main(int argc, char *argv[])
         pps = totpckts - pcktcntlast;
         bps = totbytes - bytecntlast;
 
-        fprintf(stdout, "%llu PPS | %llu BPS (%s).\n", pps, bps, (cmd.afxdp) ? "AF_XDP DROP" : (cmd.rawxdptx) ? "XDP TX" : "XDP DROP");
+        fprintf(stdout, "%llu PPS | %llu BPS (%s %s).\n", pps, bps, (cmd.afxdp) ? "AF_XDP" : "XDP", (cmd.tx) ? "TX" : "DROP");
 
         pcktcntlast = pcktcount;
         bytecntlast = bytecount;
