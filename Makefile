@@ -59,6 +59,7 @@ install:
 	cp $(BUILDDIR)/$(RAWXDPOBJ) /etc/xdpstats/$(RAWXDPOBJ)
 	cp $(BUILDDIR)/$(RAWXDPTXOBJ) /etc/xdpstats/$(RAWXDPTXOBJ)
 	cp $(BUILDDIR)/$(AFXDPRAWOBJ) /etc/xdpstats/$(AFXDPRAWOBJ)
+	cp $(BUILDDIR)/$(AFXDPRAWTXOBJ) /etc/xdpstats/$(AFXDPRAWTXOBJ)
 	cp $(BUILDDIR)/$(LOADEROUT) /usr/bin/$(LOADEROUT)
 clean:
 	$(MAKE) -C $(LIBBPFSRC) clean
