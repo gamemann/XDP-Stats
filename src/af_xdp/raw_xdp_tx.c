@@ -50,27 +50,6 @@ static __always_inline void swapeth(struct ethhdr *eth)
 }
 #endif
 
-static __always_inline void updatestats(__u16 len)
-{
-    // Update map.
-    __u32 key = 0;
-    struct stats *cnt = bpf_map_lookup_elem(&packets_map, &key);
-
-    if (cnt)
-    {
-        cnt->pckts++;
-        cnt->bytes += len;
-    }
-    else
-    {
-        struct stats newstats = {0};
-        newstats.pckts = 1;
-        newstats.bytes = len;
-
-        bpf_map_update_elem(&packets_map, &key, &newstats, BPF_ANY);
-    } 
-}
-
 static __always_inline int ip_decrease_ttl(struct iphdr *iph)
 {
     __u32 check = (__u32)iph->check;
@@ -169,11 +148,6 @@ int prog(struct xdp_md *ctx)
 
     // Decrease IP's TTL.
     ip_decrease_ttl(iph);
-
-    // Update stats map.
-    __u16 len = (long)ctx->data_end - (long)ctx->data;
-
-    updatestats(len);
 
     #ifdef DEBUG
         bpf_printk("Redirecting packet to RX queue %d.\n", ctx->rx_queue_index);
