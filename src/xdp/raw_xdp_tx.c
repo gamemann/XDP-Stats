@@ -10,7 +10,6 @@
 
 #include "../include.h"
 
-
 #define FIBLOOKUP
 
 //#define DEBUG
