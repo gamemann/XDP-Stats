@@ -337,8 +337,6 @@ void *PollXSK(void *data)
                 cnt.bytes = len;
             }
 
-            fprintf(stdout, "%llu pckts. %llu bytes. Key => %d. Packet map -> %d.\n", cnt.pckts, cnt.bytes, key, ti->pcktmap);
-
             if (bpf_map_update_elem(ti->pcktmap, &key, &cnt, BPF_ANY) != 0)
             {
                 fprintf(stdout, "Failed to update map.\n");
