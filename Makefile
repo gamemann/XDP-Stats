@@ -27,6 +27,9 @@ AFXDPOBJ = af_xdp.o
 AFXDPRAWSRC = af_xdp/raw_xdp.c
 AFXDPRAWBC = afxdp_raw.bc
 AFXDPRAWOBJ = afxdp_raw.o
+AFXDPRAWTXSRC = af_xdp/raw_xdp_tx.c
+AFXDPRAWTXBC = afxdp_raw_tx.bc
+AFXDPRAWTXOBJ = afxdp_raw_tx.o
 
 INCS = -I $(LIBBPFSRC)
 
@@ -44,6 +47,8 @@ afxdp: libbpf
 	$(CC) $(INCS) -O2 -c -o $(BUILDDIR)/$(AFXDPOBJ) $(SRCDIR)/$(AFXDPSRC)
 	$(CC) $(INCS) -D__BPF__ -Wall -Wextra -O2 -emit-llvm -c $(SRCDIR)/$(AFXDPRAWSRC) -o $(BUILDDIR)/$(AFXDPRAWBC)
 	llc -march=bpf -filetype=obj $(BUILDDIR)/$(AFXDPRAWBC) -o $(BUILDDIR)/$(AFXDPRAWOBJ)
+	$(CC) $(INCS) -D__BPF__ -Wall -Wextra -O2 -emit-llvm -c $(SRCDIR)/$(AFXDPRAWTXSRC) -o $(BUILDDIR)/$(AFXDPRAWTXBC)
+	llc -march=bpf -filetype=obj $(BUILDDIR)/$(AFXDPRAWTXBC) -o $(BUILDDIR)/$(AFXDPRAWTXOBJ)
 loader: libbpf
 	mkdir -p $(BUILDDIR)
 	$(CC) $(INCS) $(LOADERFLAGS) -O3 -o $(BUILDDIR)/$(LOADEROUT) $(LIBBPFOBJS) $(BUILDDIR)/$(AFXDPOBJ) $(SRCDIR)/$(LOADERSRC)
