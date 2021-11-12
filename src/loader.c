@@ -315,7 +315,7 @@ int main(int argc, char *argv[])
 
         if (cmd.afxdp)
         {
-            struct stats *cnt = NULL;
+            struct stats *cnt = malloc(sizeof(struct stats));
 
             if (bpf_map_lookup_elem(pcktmap, &key, cnt) != 0)
             {
@@ -329,6 +329,8 @@ int main(int argc, char *argv[])
                 pcktcount = cnt->pckts;
                 bytecount = cnt->bytes;
             }
+
+            free(cnt);
         }
         else
         {
