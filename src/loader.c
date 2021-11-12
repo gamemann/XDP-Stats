@@ -22,7 +22,7 @@ const struct option longopts[] =
     {"interface", required_argument, NULL, 'i'},
     {"time", required_argument, NULL, 't'},
     {"afxdp", no_argument, NULL, 'x'},
-    {"xdptx", no_argument, NULL, 'r'},
+    {"tx", no_argument, NULL, 'r'},
     {"cores", required_argument, NULL, 'c'},
     {"skb", no_argument, NULL, 's'},
     {"offload", no_argument, NULL, 'o'},
