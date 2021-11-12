@@ -141,6 +141,9 @@ int prog(struct xdp_md *ctx)
     if (fwd == BPF_FIB_LKUP_RET_SUCCESS)
     {
         // Reinitialize headers.
+        data = (void *)(long)ctx->data;
+        data_end = (void *)(long)ctx->data_end;
+        
         eth = data;
 
         if (eth + 1 > (struct ethhdr *)data_end)
