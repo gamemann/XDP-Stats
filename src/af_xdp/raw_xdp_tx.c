@@ -120,28 +120,30 @@ int prog(struct xdp_md *ctx)
 
     int fwd = bpf_fib_lookup(ctx, &params, sizeof(params), BPF_FIB_LOOKUP_OUTPUT);
 
-    // Now check if we should forward this packet.
-    if (fwd == BPF_FIB_LKUP_RET_SUCCESS)
+    // Drop packet if FIB lookup fails.
+    if (fwd != BPF_FIB_LKUP_RET_SUCCESS)
     {
-        // Reinitialize headers.
-        eth = data;
-
-        if (eth + 1 > (struct ethhdr *)data_end)
-        {
-            return XDP_DROP;
-        }
-
-        iph = data + sizeof(struct ethhdr);
-
-        if (unlikely(iph + 1 > (struct iphdr *)data_end))
-        {
-            return XDP_DROP;
-        }
-
-        // Swap ethernet source/destination MAC addresses.
-        memcpy(eth->h_source, params.smac, ETH_ALEN);
-        memcpy(eth->h_dest, params.dmac, ETH_ALEN);
+        return XDP_DROP;
     }
+
+    // Reinitialize headers.
+    eth = data;
+
+    if (eth + 1 > (struct ethhdr *)data_end)
+    {
+        return XDP_DROP;
+    }
+
+    iph = data + sizeof(struct ethhdr);
+
+    if (unlikely(iph + 1 > (struct iphdr *)data_end))
+    {
+        return XDP_DROP;
+    }
+
+    // Swap ethernet source/destination MAC addresses.
+    memcpy(eth->h_source, params.smac, ETH_ALEN);
+    memcpy(eth->h_dest, params.dmac, ETH_ALEN);
     #else
     // Otherwise, switch ethernet MAC addresses.
     swapeth(eth);
