@@ -341,33 +341,9 @@ void *PollXSK(void *data)
             {
                 fprintf(stdout, "Failed to update map.\n");
             }
-
-            // Send packet back out TX.
-            /*
-            __u32 tx_idx = 0;
-
-            ret = xsk_ring_prod__reserve(&ti->xsk->tx, 1, &tx_idx);
-
-            if (ret != 1)
-            {
-                #ifdef DEBUG
-                    fprintf(stderr, "[XSK] No more TX slots available.\n");
-                #endif
-
-                xsk_free_umem_frame(ti->xsk, addr);
-
-                continue;
-            }
-
-            xsk_ring_prod__tx_desc(&ti->xsk->tx, tx_idx)->addr = addr;
-            //xsk_ring_prod__tx_desc(&ti->xsk->tx, tx_idx)->len = newlen;
-            xsk_ring_prod__submit(&ti->xsk->tx, 1);
-            ti->xsk->outstanding_tx++;
-            */
         }
 
         xsk_ring_cons__release(&ti->xsk->rx, rcvd);
-        //complete_tx(ti->xsk);
     }
 
     #ifdef DEBUG
