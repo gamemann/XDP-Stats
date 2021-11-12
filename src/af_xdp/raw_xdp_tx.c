@@ -141,6 +141,7 @@ int prog(struct xdp_md *ctx)
         // Swap ethernet source/destination MAC addresses.
         memcpy(eth->h_source, params.smac, ETH_ALEN);
         memcpy(eth->h_dest, params.dmac, ETH_ALEN);
+    }
     #else
     // Otherwise, switch ethernet MAC addresses.
     swapeth(eth);
