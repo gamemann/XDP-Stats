@@ -48,5 +48,5 @@ struct thread_info
     int xsksmap;
 };
 
-int setupxsk(const char *dev, int ifidx, int pcktmap, int xsksmap, __u32 xdpflags, __u32 cores);
+int setupxsk(const char *dev, int ifidx, int pcktmap, int xsksmap, __u32 xdpflags, __u32 cores, __u8);
 void cleanupxsk(__u32 cores);

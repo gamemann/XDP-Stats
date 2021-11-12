@@ -341,9 +341,172 @@ void *PollXSK(void *data)
             {
                 fprintf(stdout, "Failed to update map.\n");
             }
+
+            // Send packet back out TX.
+            __u32 tx_idx = 0;
+
+            ret = xsk_ring_prod__reserve(&ti->xsk->tx, 1, &tx_idx);
+
+            if (ret != 1)
+            {
+                #ifdef DEBUG
+                    fprintf(stderr, "[XSK] No more TX slots available.\n");
+                #endif
+
+                xsk_free_umem_frame(ti->xsk, addr);
+
+                continue;
+            }
         }
 
         xsk_ring_cons__release(&ti->xsk->rx, rcvd);
+    }
+
+    #ifdef DEBUG
+        fprintf(stdout, "[XSK] Exiting poll...\n");
+    #endif
+
+    if (ti->xsk->xsk != NULL)
+    {
+	    xsk_socket__delete(ti->xsk->xsk);
+    }
+
+    if (ti->xsk->umem->umem != NULL)
+    {
+	    xsk_umem__delete(ti->xsk->umem->umem);
+    }
+
+    free(ti);
+
+    pthread_exit(NULL);
+}
+
+void *PollXSKTX(void *data)
+{
+    struct thread_info *ti = (struct thread_info *)data;
+
+    struct pollfd fds[2];
+    int ret, nfds = 1;
+
+    unsigned int cpucnt = bpf_num_possible_cpus();
+
+    memset(fds, 0, sizeof(fds));
+    fds[0].fd = xsk_socket__fd(ti->xsk->xsk);
+    fds[0].events = POLLIN;
+
+    struct sysinfo sysinf = {0};
+
+    #ifdef DEBUG
+        fprintf(stdout, "[XSK] Starting to poll for FD %d (%d)...\n", ti->xsk->xsk->fd, fds[0].fd);
+    #endif
+
+    while (1)
+    {
+        ret = poll(fds, nfds, -1);
+
+        if (ret != 1)
+        {
+            continue;
+        }
+
+        __u32 idx_rx, idx_fq = 0;
+
+        unsigned int rcvd = xsk_ring_cons__peek(&ti->xsk->rx, RX_BATCH_SIZE, &idx_rx);
+
+        if (!rcvd)
+        {
+            continue;
+        }
+
+        #ifdef DEBUG
+            fprintf(stdout, "[XSK] Received %d packets from AF_XDP socket from queue ID %d\n", rcvd, ti->id);
+        #endif
+
+        int stockframes;
+
+        stockframes = xsk_prod_nb_free(&ti->xsk->umem->fq, xsk_umem_free_frames(ti->xsk));
+
+        if (stockframes > 0)
+        {
+            #ifdef DEBUG
+                fprintf(stdout, "[XSK] We have %d stock frames.\n", stockframes);
+            #endif
+
+            ret = xsk_ring_prod__reserve(&ti->xsk->umem->fq, rcvd, &idx_fq);
+
+            while (ret != stockframes)
+            {
+                ret = xsk_ring_prod__reserve(&ti->xsk->umem->fq, rcvd, &idx_fq);
+            }
+
+            for (int j = 0; j < stockframes; j++)
+            {
+                *xsk_ring_prod__fill_addr(&ti->xsk->umem->fq, idx_fq++) = xsk_alloc_umem_frame(ti->xsk);
+            }
+
+            xsk_ring_prod__submit(&ti->xsk->umem->fq, stockframes);
+        }
+
+        for (int j = 0; j < rcvd; j++)
+        {
+            __u64 addr = xsk_ring_cons__rx_desc(&ti->xsk->rx, idx_rx)->addr;
+            __u32 len = xsk_ring_cons__rx_desc(&ti->xsk->rx, idx_rx++)->len;
+
+            void *pckt = xsk_umem__get_data(ti->xsk->umem->buffer, addr);
+
+            if (!pckt)
+            {
+                fprintf(stdout, "[XSK] Packet not true; freeing frame.\n");
+
+                xsk_free_umem_frame(ti->xsk, addr);
+
+                continue;
+            }
+
+            // Update map.
+            __u32 key = 0;
+            struct stats cnt = {0};
+            
+            if (bpf_map_lookup_elem(ti->pcktmap, &key, &cnt) == 0)
+            {
+                cnt.pckts++;
+                cnt.bytes += len;
+            }
+            else
+            {
+                cnt.pckts = 1;
+                cnt.bytes = len;
+            }
+
+            if (bpf_map_update_elem(ti->pcktmap, &key, &cnt, BPF_ANY) != 0)
+            {
+                fprintf(stdout, "Failed to update map.\n");
+            }
+
+            // Send packet back out TX.
+            __u32 tx_idx = 0;
+
+            ret = xsk_ring_prod__reserve(&ti->xsk->tx, 1, &tx_idx);
+
+            if (ret != 1)
+            {
+                #ifdef DEBUG
+                    fprintf(stderr, "[XSK] No more TX slots available.\n");
+                #endif
+
+                xsk_free_umem_frame(ti->xsk, addr);
+
+                continue;
+            }
+
+            xsk_ring_prod__tx_desc(&ti->xsk->tx, tx_idx)->addr = addr;
+            xsk_ring_prod__tx_desc(&ti->xsk->tx, tx_idx)->len = len;
+            xsk_ring_prod__submit(&ti->xsk->tx, 1);
+            ti->xsk->outstanding_tx++;
+        }
+
+        xsk_ring_cons__release(&ti->xsk->rx, rcvd);
+        complete_tx(ti->xsk);
     }
 
     #ifdef DEBUG
@@ -376,7 +539,7 @@ void *PollXSK(void *data)
  * 
  * @return Returns 0 on success or 1 on failure.
 **/
-int setupxsk(const char *dev, int ifidx, int pcktmap, int xsksmap, __u32 xdpflags, __u32 cores)
+int setupxsk(const char *dev, int ifidx, int pcktmap, int xsksmap, __u32 xdpflags, __u32 cores, __u8 tx)
 {
     flags = xdpflags;
     int ret;
@@ -441,7 +604,7 @@ int setupxsk(const char *dev, int ifidx, int pcktmap, int xsksmap, __u32 xdpflag
 
         pthread_t tid;
 
-        pthread_create(&tid, NULL, PollXSK, (void *)ti);
+        pthread_create(&tid, NULL, (tx) ? PollXSKTX : PollXSK, (void *)ti);
 
         fprintf(stdout, "Created XSK socket #%d (FD => %d) (Map => %d)\n", i, fd, xsksmap);
     }
