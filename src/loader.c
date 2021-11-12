@@ -320,45 +320,24 @@ int main(int argc, char *argv[])
         __u64 pps = 0;
         __u64 bps = 0;
 
-        if (cmd.afxdp)
+
+        struct stats cnt[cpucnt];
+
+        if (bpf_map_lookup_elem(pcktmap, &key, cnt) != 0)
         {
-            struct stats *cnt = malloc(sizeof(struct stats));
-
-            if (bpf_map_lookup_elem(pcktmap, &key, cnt) != 0)
-            {
-                fprintf(stderr, "Failed lookup. Pckt map => %d.\n", pcktmap);
-
-                continue;
-            }
-
-            if (cnt)
-            {
-                pcktcount = cnt->pckts;
-                bytecount = cnt->bytes;
-            }
-
-            free(cnt);
+            continue;
         }
-        else
-        {
-            struct stats cnt[cpucnt];
 
-            if (bpf_map_lookup_elem(pcktmap, &key, cnt) != 0)
+        for (unsigned int i = 0; i < cpucnt; i++)
+        {
+            if (cnt[i].pckts > 0)
             {
-                continue;
+                pcktcount += cnt[i].pckts;
             }
 
-            for (unsigned int i = 0; i < cpucnt; i++)
+            if (cnt[i].bytes > 0)
             {
-                if (cnt[i].pckts > 0)
-                {
-                    pcktcount += cnt[i].pckts;
-                }
-
-                if (cnt[i].bytes > 0)
-                {
-                    bytecount += cnt[i].bytes;
-                }
+                bytecount += cnt[i].bytes;
             }
         }
 

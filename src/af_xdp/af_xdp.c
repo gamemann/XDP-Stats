@@ -324,17 +324,30 @@ void *PollXSK(void *data)
 
             // Update map.
             __u32 key = 0;
-            struct stats cnt = {0};
+            struct stats cnt[cpucnt];
+
+            // Check to make sure RX index doesn't go out of bounds.
+            if (ti->id >= cpucnt)
+            {
+                // RX index out of bounds. Drop packet and continue.
+                #ifdef DEBUG
+                fprintf(stdout, "[AF_XDP] RX queue ID out of bounds for CPU count (%u >= %u). Dropping packet.\n", ti->id, cpucnt);
+                #endif
+
+                xsk_free_umem_frame(ti->xsk, addr);
+
+                continue;
+            }
             
             if (bpf_map_lookup_elem(ti->pcktmap, &key, &cnt) == 0)
             {
-                cnt.pckts++;
-                cnt.bytes += len;
+                cnt[ti->id].pckts++;
+                cnt[ti->id].bytes += len;
             }
             else
             {
-                cnt.pckts = 1;
-                cnt.bytes = len;
+                cnt[ti->id].pckts = 1;
+                cnt[ti->id].bytes = len;
             }
 
             if (bpf_map_update_elem(ti->pcktmap, &key, &cnt, BPF_ANY) != 0)
@@ -397,7 +410,7 @@ void *PollXSKTX(void *data)
     struct sysinfo sysinf = {0};
 
     #ifdef DEBUG
-        fprintf(stdout, "[XSK] Starting to poll for FD %d (%d)...\n", ti->xsk->xsk->fd, fds[0].fd);
+    fprintf(stdout, "[AF_XDP] Starting to poll for FD %d (%d)...\n", ti->xsk->xsk->fd, fds[0].fd);
     #endif
 
     while (1)
@@ -419,7 +432,7 @@ void *PollXSKTX(void *data)
         }
 
         #ifdef DEBUG
-            fprintf(stdout, "[XSK] Received %d packets from AF_XDP socket from queue ID %d\n", rcvd, ti->id);
+        fprintf(stdout, "[AF_XDP] Received %d packets from AF_XDP socket from queue ID %d\n", rcvd, ti->id);
         #endif
 
         int stockframes;
@@ -429,7 +442,7 @@ void *PollXSKTX(void *data)
         if (stockframes > 0)
         {
             #ifdef DEBUG
-                fprintf(stdout, "[XSK] We have %d stock frames.\n", stockframes);
+            fprintf(stdout, "[AF_XDP] We have %d stock frames.\n", stockframes);
             #endif
 
             ret = xsk_ring_prod__reserve(&ti->xsk->umem->fq, rcvd, &idx_fq);
@@ -456,7 +469,9 @@ void *PollXSKTX(void *data)
 
             if (!pckt)
             {
-                fprintf(stdout, "[XSK] Packet not true; freeing frame.\n");
+                #ifdef DEBUG
+                fprintf(stdout, "[AF_XDP] Packet not true; freeing frame.\n");
+                #endif
 
                 xsk_free_umem_frame(ti->xsk, addr);
 
@@ -465,22 +480,37 @@ void *PollXSKTX(void *data)
 
             // Update map.
             __u32 key = 0;
-            struct stats cnt = {0};
+            struct stats cnt[cpucnt];
+            
+            // Check to make sure RX index doesn't go out of bounds.
+            if (ti->id >= cpucnt)
+            {
+                // RX index out of bounds. Drop packet and continue.
+                #ifdef DEBUG
+                fprintf(stdout, "[AF_XDP] RX queue ID out of bounds for CPU count (%u >= %u). Dropping packet.\n", ti->id, cpucnt);
+                #endif
+
+                xsk_free_umem_frame(ti->xsk, addr);
+
+                continue;
+            }
             
             if (bpf_map_lookup_elem(ti->pcktmap, &key, &cnt) == 0)
             {
-                cnt.pckts++;
-                cnt.bytes += len;
+                cnt[ti->id].pckts++;
+                cnt[ti->id].bytes += len;
             }
             else
             {
-                cnt.pckts = 1;
-                cnt.bytes = len;
+                cnt[ti->id].pckts = 1;
+                cnt[ti->id].bytes = len;
             }
 
             if (bpf_map_update_elem(ti->pcktmap, &key, &cnt, BPF_ANY) != 0)
             {
-                fprintf(stdout, "Failed to update map.\n");
+                #ifdef DEBUG
+                fprintf(stdout, "[AF_XDP] Failed to update map.\n");
+                #endif
             }
 
             // Send packet back out TX.
@@ -491,7 +521,7 @@ void *PollXSKTX(void *data)
             if (ret != 1)
             {
                 #ifdef DEBUG
-                    fprintf(stderr, "[XSK] No more TX slots available.\n");
+                fprintf(stderr, "[AF_XDP] No more TX slots available.\n");
                 #endif
 
                 xsk_free_umem_frame(ti->xsk, addr);
@@ -510,7 +540,7 @@ void *PollXSKTX(void *data)
     }
 
     #ifdef DEBUG
-        fprintf(stdout, "[XSK] Exiting poll...\n");
+    fprintf(stdout, "[XSK] Exiting poll...\n");
     #endif
 
     if (ti->xsk->xsk != NULL)
@@ -599,6 +629,7 @@ int setupxsk(const char *dev, int ifidx, int pcktmap, int xsksmap, __u32 xdpflag
 
         ti->id = i;
         ti->xsk = xsk_socket[i];
+
         ti->pcktmap = pcktmap;
         ti->xsksmap = xsksmap;
 
