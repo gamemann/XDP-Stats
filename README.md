@@ -1,10 +1,8 @@
 # XDP Stats
 ## Description
-This is a program that calculates stats inside of an XDP program (support for both `XDP_DROP` and `XDP_TX`). As of right now, the stats are just the amount of packets and bytes (including per second).
+This is a program that calculates stats inside of an XDP program (support for both dropping and TX'ing the packet). As of right now, the stats are just the amount of packets and bytes (including per second).
 
 The stats are calculated to **UDP** packets with the destination port `27015` by default. You may adjust the port inside of `src/include.h`. If you comment out the `TARGETPORT` define with `//`, it will calculate stats for packets on all ports.
-
-**Warning** - There is also an AF_XDP program, but that is currently broken. The map for some reason isn't updating within the AF_XDP program itself. I will be fixing this, though.
 
 ## Command Line Options
 There are two command line options for this program which may be found below.
