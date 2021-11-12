@@ -286,7 +286,7 @@ int main(int argc, char *argv[])
     {
         int xsksmap = bpf_object__find_map_fd_by_name(obj, "xsks_map");
 
-        setupxsk(cmd.interface, ifidx, pcktmap, xsksmap, (__u32)flags, cmd.cores);
+        setupxsk(cmd.interface, ifidx, pcktmap, xsksmap, (__u32)flags, cmd.cores, cmd.tx);
     }
 
     signal(SIGINT, sighndl);
